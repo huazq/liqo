@@ -48,6 +48,7 @@ type AuthOption struct {
 	CAOverrideB64            string
 	TrustedCA                bool
 	TLSCompatibilityMode     bool
+	ControlPlaneTransport    string
 	SliceStatusOptions       *remoteresourceslicecontroller.SliceStatusOptions
 }
 
@@ -63,6 +64,7 @@ func NewAuthOption(identityProvider identitymanager.IdentityProvider, namespaceM
 		CAOverrideB64:            opts.CAOverride,
 		TrustedCA:                opts.TrustedCA,
 		TLSCompatibilityMode:     opts.TLSCompatibilityMode,
+		ControlPlaneTransport:    opts.ControlPlaneTransport,
 		SliceStatusOptions: &remoteresourceslicecontroller.SliceStatusOptions{
 			EnableStorage:             opts.EnableStorage,
 			LocalRealStorageClassName: opts.RealStorageClassName,
@@ -124,7 +126,7 @@ func SetupAuthenticationModule(ctx context.Context, mgr manager.Manager, uncache
 
 	// Configure controller that creates Kubeconfig secrets for each identities.
 	identityReconciler := identitycontroller.NewIdentityReconciler(mgr.GetClient(), mgr.GetScheme(),
-		mgr.GetEventRecorderFor("identity-controller"), opts.LiqoNamespace)
+		mgr.GetEventRecorderFor("identity-controller"), opts.LiqoNamespace, opts.ControlPlaneTransport)
 	if err := identityReconciler.SetupWithManager(mgr); err != nil {
 		klog.Errorf("Unable to setup the identity reconciler: %v", err)
 		return err

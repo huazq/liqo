@@ -68,7 +68,8 @@ func newPeerCommand(ctx context.Context, f *factory.Factory) *cobra.Command {
 		Args:  cobra.NoArgs,
 
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			twoClustersPersistentPreRun(cmd, options.LocalFactory, options.RemoteFactory, factory.WithScopedPrinter)
+			twoClustersPersistentPreRunWithZenoh(cmd, options.LocalFactory, options.RemoteFactory,
+				options.RemoteZenohListenerAddress, factory.WithScopedPrinter)
 		},
 
 		Run: func(_ *cobra.Command, _ []string) {
@@ -77,6 +78,8 @@ func newPeerCommand(ctx context.Context, f *factory.Factory) *cobra.Command {
 	}
 
 	cmd.PersistentFlags().DurationVar(&options.Timeout, "timeout", 10*time.Minute, "Timeout for peering completion")
+	cmd.PersistentFlags().StringVar(&options.RemoteZenohListenerAddress, "remote-zenoh-listener-address", "",
+		"Local ZBT listener host:port used to reach the remote API server during bootstrap; preserves --remote-kubeconfig server for TLS")
 	cmd.PersistentFlags().BoolVar(&options.SkipValidation, "skip-validation", false, "Skip the validation")
 
 	options.LocalFactory.AddFlags(cmd.PersistentFlags(), cmd.RegisterFlagCompletionFunc)

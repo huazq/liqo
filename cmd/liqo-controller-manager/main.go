@@ -49,6 +49,7 @@ import (
 	identitymanager "github.com/liqotech/liqo/pkg/identityManager"
 	"github.com/liqotech/liqo/pkg/ipam"
 	liqocontrollermanager "github.com/liqotech/liqo/pkg/liqo-controller-manager"
+	controlplanecontroller "github.com/liqotech/liqo/pkg/liqo-controller-manager/controlplane"
 	foreignclustercontroller "github.com/liqotech/liqo/pkg/liqo-controller-manager/core/foreigncluster-controller"
 	ipmapping "github.com/liqotech/liqo/pkg/liqo-controller-manager/ipmapping"
 	quotacreatorcontroller "github.com/liqotech/liqo/pkg/liqo-controller-manager/quotacreator-controller"
@@ -164,6 +165,24 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 
 	namespaceManager := tenantnamespace.NewCachedManager(cmd.Context(), clientset, scheme)
+
+	if opts.ControlPlaneTransport != "direct" && opts.ControlPlaneTransport != "zenoh" {
+		return fmt.Errorf("unsupported control-plane transport %q", opts.ControlPlaneTransport)
+	}
+	if opts.ControlPlaneTransport == "zenoh" {
+		zenohReconciler := &controlplanecontroller.ZenohRemoteAPIAccessReconciler{
+			Client:           mgr.GetClient(),
+			Scheme:           mgr.GetScheme(),
+			LiqoNamespace:    opts.LiqoNamespace,
+			LocalClusterID:   clusterID,
+			BridgeImage:      opts.ZenohBridgeImage,
+			ConfigSecretName: opts.ZenohConfigSecretName,
+			ConfigSecretKey:  opts.ZenohConfigSecretKey,
+		}
+		if err := zenohReconciler.SetupWithManager(mgr); err != nil {
+			return fmt.Errorf("unable to setup Zenoh remote API access reconciler: %w", err)
+		}
+	}
 
 	// Setup operators for each module:
 

@@ -40,7 +40,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/transport/spdy"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
 	metricsv1beta1 "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
@@ -50,6 +49,7 @@ import (
 	offloadingv1beta1 "github.com/liqotech/liqo/apis/offloading/v1beta1"
 	offloadingv1beta1clients "github.com/liqotech/liqo/pkg/client/clientset/versioned/typed/offloading/v1beta1"
 	offloadingv1beta1listers "github.com/liqotech/liqo/pkg/client/listers/offloading/v1beta1"
+	zenohcontrolplane "github.com/liqotech/liqo/pkg/controlplane/zenoh"
 	podstatusctrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/podstatus-controller"
 	ipamips "github.com/liqotech/liqo/pkg/utils/ipam/mapping"
 	"github.com/liqotech/liqo/pkg/utils/pod"
@@ -508,7 +508,7 @@ func (npr *NamespacedPodReflector) Exec(ctx context.Context, po, container strin
 			TTY:       attach.TTY(),
 		}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(npr.remoteRESTConfig, http.MethodPost, request.URL())
+	exec, err := zenohcontrolplane.NewSPDYExecutor(npr.remoteRESTConfig, http.MethodPost, request.URL())
 	if err != nil {
 		klog.Errorf("Failed to exec command in container %q of local pod %q (remote %q): %v", container, npr.LocalRef(po), npr.RemoteRef(po), err)
 		return fmt.Errorf("failed to execute command: %w", err)
@@ -546,7 +546,7 @@ func (npr *NamespacedPodReflector) Attach(ctx context.Context, po, container str
 			TTY:       attach.TTY(),
 		}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(npr.remoteRESTConfig, http.MethodPost, request.URL())
+	exec, err := zenohcontrolplane.NewSPDYExecutor(npr.remoteRESTConfig, http.MethodPost, request.URL())
 	if err != nil {
 		klog.Errorf("Failed attaching to container %q of local pod %q (remote %q): %v", container, npr.LocalRef(po), npr.RemoteRef(po), err)
 		return fmt.Errorf("failed to execute command: %w", err)
@@ -585,14 +585,11 @@ func (npr *NamespacedPodReflector) PortForward(_ context.Context, name string, p
 			Ports: []int32{port},
 		}, scheme.ParameterCodec)
 
-	transport, upgrader, err := spdy.RoundTripperFor(npr.remoteRESTConfig)
-
+	dialer, err := zenohcontrolplane.NewSPDYDialer(npr.remoteRESTConfig, http.MethodPost, request.URL())
 	if err != nil {
-		klog.Errorf("Failed to setup RountTripper for Namespace pod reflector")
+		klog.Errorf("Failed to setup SPDY dialer for Namespace pod reflector")
 		return fmt.Errorf("failed to port forward: %w", err)
 	}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, request.URL())
 
 	stopChannel := make(chan struct{}, 1)
 	readyChannel := make(chan struct{})

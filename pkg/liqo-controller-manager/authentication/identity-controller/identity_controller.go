@@ -35,14 +35,15 @@ import (
 )
 
 // NewIdentityReconciler returns a new IdentityReconciler.
-func NewIdentityReconciler(cl client.Client, s *runtime.Scheme, recorder record.EventRecorder, liqoNamespace string) *IdentityReconciler {
+func NewIdentityReconciler(cl client.Client, s *runtime.Scheme, recorder record.EventRecorder, liqoNamespace, controlPlaneTransport string) *IdentityReconciler {
 	return &IdentityReconciler{
 		Client: cl,
 		Scheme: s,
 
 		eventRecorder: recorder,
 
-		liqoNamespace: liqoNamespace,
+		liqoNamespace:         liqoNamespace,
+		controlPlaneTransport: controlPlaneTransport,
 	}
 }
 
@@ -53,7 +54,8 @@ type IdentityReconciler struct {
 
 	eventRecorder record.EventRecorder
 
-	liqoNamespace string
+	liqoNamespace         string
+	controlPlaneTransport string
 }
 
 // cluster-role
@@ -115,6 +117,9 @@ func (r *IdentityReconciler) ensureKubeconfigSecret(ctx context.Context, identit
 	op, err := resource.CreateOrUpdate(ctx, r.Client, kubeconfigSecret, func() error {
 		if err := forge.MutateKubeconfigSecret(kubeconfigSecret, identity, privateKey, namespace); err != nil {
 			return err
+		}
+		if r.controlPlaneTransport == "zenoh" {
+			kubeconfigSecret.Annotations[consts.ZenohControlPlaneRequiredAnnotation] = "true"
 		}
 		return controllerutil.SetControllerReference(identity, kubeconfigSecret, r.Scheme)
 	})

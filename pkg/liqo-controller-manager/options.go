@@ -42,6 +42,10 @@ type Options struct {
 	ForeignClusterPingInterval time.Duration
 	ForeignClusterPingTimeout  time.Duration
 	DefaultLimitsEnforcement   string
+	ControlPlaneTransport      string
+	ZenohBridgeImage           string
+	ZenohConfigSecretName      string
+	ZenohConfigSecretKey       string
 
 	// Networking module
 	IPAMServer                     string

@@ -50,7 +50,8 @@ func newAuthenticateCommand(ctx context.Context, f *factory.Factory) *cobra.Comm
 		Args:    cobra.NoArgs,
 
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			twoClustersPersistentPreRun(cmd, options.LocalFactory, options.RemoteFactory, factory.WithScopedPrinter)
+			twoClustersPersistentPreRunWithZenoh(cmd, options.LocalFactory, options.RemoteFactory,
+				options.RemoteZenohListenerAddress, factory.WithScopedPrinter)
 		},
 
 		Run: func(_ *cobra.Command, _ []string) {
@@ -59,6 +60,8 @@ func newAuthenticateCommand(ctx context.Context, f *factory.Factory) *cobra.Comm
 	}
 
 	cmd.PersistentFlags().DurationVar(&options.Timeout, "timeout", 2*time.Minute, "Timeout for completion")
+	cmd.PersistentFlags().StringVar(&options.RemoteZenohListenerAddress, "remote-zenoh-listener-address", "",
+		"Local ZBT listener host:port used to reach the remote API server during bootstrap; preserves --remote-kubeconfig server for TLS")
 
 	options.LocalFactory.AddFlags(cmd.PersistentFlags(), cmd.RegisterFlagCompletionFunc)
 	options.RemoteFactory.AddFlags(cmd.PersistentFlags(), cmd.RegisterFlagCompletionFunc)

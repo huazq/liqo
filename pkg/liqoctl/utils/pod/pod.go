@@ -25,6 +25,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
+
+	zenohcontrolplane "github.com/liqotech/liqo/pkg/controlplane/zenoh"
 )
 
 // ExecInPod executes a command in a pod.
@@ -46,7 +48,7 @@ func ExecInPod(ctx context.Context, clset *kubernetes.Clientset, cfg *rest.Confi
 		}, scheme.ParameterCodec).URL()
 
 	// Execute the command
-	exec, err := remotecommand.NewSPDYExecutor(cfg, "POST", url)
+	exec, err := zenohcontrolplane.NewSPDYExecutor(cfg, "POST", url)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to initialize command executor: %w", err)
 	}

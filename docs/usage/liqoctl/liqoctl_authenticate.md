@@ -75,6 +75,10 @@ liqoctl authenticate [flags]
 
 >The name of the kubeconfig user to use (in the remote cluster)
 
+`--remote-zenoh-listener-address` _string_:
+
+>Local ZBT listener host:port used to reach the remote API server during bootstrap; preserves --remote-kubeconfig server for TLS
+
 `--timeout` _duration_:
 
 >Timeout for completion **(default 2m0s)**

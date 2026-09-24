@@ -27,8 +27,9 @@ type Options struct {
 	RemoteFactory *factory.Factory
 	Timeout       time.Duration
 
-	InBand   bool
-	ProxyURL string
+	InBand                     bool
+	ProxyURL                   string
+	RemoteZenohListenerAddress string
 }
 
 // NewOptions returns a new Options struct.

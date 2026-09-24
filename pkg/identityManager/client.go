@@ -25,6 +25,7 @@ import (
 
 	liqov1beta1 "github.com/liqotech/liqo/apis/core/v1beta1"
 	"github.com/liqotech/liqo/pkg/consts"
+	zenohcontrolplane "github.com/liqotech/liqo/pkg/controlplane/zenoh"
 	"github.com/liqotech/liqo/pkg/utils/getters"
 	"github.com/liqotech/liqo/pkg/utils/kubeconfig"
 )
@@ -62,6 +63,9 @@ func (certManager *identityManager) GetConfigFromSecret(remoteCluster liqov1beta
 	cnf, err := kubeconfig.BuildConfigFromSecret(secret)
 	if err != nil {
 		return nil, err
+	}
+	if err := zenohcontrolplane.ConfigureDialer(cnf, secret); err != nil {
+		return nil, fmt.Errorf("configure Zenoh control-plane dialer: %w", err)
 	}
 
 	if certManager.isAwsIdentity(secret) {

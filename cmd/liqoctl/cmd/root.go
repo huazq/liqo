@@ -21,7 +21,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	k8srest "k8s.io/client-go/rest"
 
+	zenohcontrolplane "github.com/liqotech/liqo/pkg/controlplane/zenoh"
 	"github.com/liqotech/liqo/pkg/liqoctl/create"
 	"github.com/liqotech/liqo/pkg/liqoctl/delete"
 	"github.com/liqotech/liqo/pkg/liqoctl/factory"
@@ -154,8 +156,22 @@ func singleClusterPersistentPreRun(_ *cobra.Command, f *factory.Factory, opts ..
 
 // twoClustersPersistentPreRun initializes both the local and the remote factory.
 func twoClustersPersistentPreRun(cmd *cobra.Command, local, remote *factory.Factory, opts ...factory.Options) {
+	twoClustersPersistentPreRunWithZenoh(cmd, local, remote, "", opts...)
+}
+
+// twoClustersPersistentPreRunWithZenoh initializes the remote factory over a
+// pre-provisioned local ZBT listener when listenerAddress is set. The remote
+// kubeconfig server remains unchanged, so TLS continues to validate the remote
+// API server identity rather than the listener identity.
+func twoClustersPersistentPreRunWithZenoh(cmd *cobra.Command, local, remote *factory.Factory, listenerAddress string, opts ...factory.Options) {
 	// Initialize the local factory fields based on the configured parameters.
 	singleClusterPersistentPreRun(cmd, local, opts...)
+
+	if listenerAddress != "" {
+		opts = append(opts, factory.WithRESTConfigMutator(func(config *k8srest.Config) error {
+			return zenohcontrolplane.ConfigureDialerForAddress(config, listenerAddress)
+		}))
+	}
 
 	// Populate the remote factory fields based on the configured parameters.
 	remote.Printer.CheckErr(remote.Initialize(opts...))

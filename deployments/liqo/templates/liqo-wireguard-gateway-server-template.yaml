@@ -92,10 +92,6 @@ spec:
                 - --metrics-address=:8082
                 {{- end }}
                 - --health-probe-bind-address=:8083
-                - --ping-enabled=true
-                - --ping-loss-threshold={{ .Values.networking.gatewayTemplates.ping.lossThreshold }}
-                - --ping-interval={{ .Values.networking.gatewayTemplates.ping.interval }}
-                - --ping-update-status-interval={{ .Values.networking.gatewayTemplates.ping.updateStatusInterval }}
                 {{- if gt (int .Values.networking.gatewayTemplates.replicas) 1 }}
                 - --leader-election=true
                 {{- else }}

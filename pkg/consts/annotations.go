@@ -53,4 +53,11 @@ const (
 	// ForeignClusterPermanentlyUnreachableAnnotationKey is the annotation used to signal that the foreign cluster is not reachable and it will
 	// never come up.
 	ForeignClusterPermanentlyUnreachableAnnotationKey = "liqo.io/foreign-cluster-permanently-unreachable"
+
+	// ZenohControlPlaneListenerAnnotation contains the local ZBT listener address to use
+	// when a client builds a configuration for a remote Kubernetes API server.
+	ZenohControlPlaneListenerAnnotation = "liqo.io/zenoh-controlplane-listener"
+	// ZenohControlPlaneRequiredAnnotation prevents a remote client from falling
+	// back to a direct API-server connection before its ZBT listener is ready.
+	ZenohControlPlaneRequiredAnnotation = "liqo.io/zenoh-controlplane-required"
 )

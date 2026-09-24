@@ -15,6 +15,7 @@
 package factory
 
 import (
+	"fmt"
 	"strings"
 
 	helm "github.com/mittwald/go-helm-client"
@@ -22,9 +23,12 @@ import (
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/completion"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -200,13 +204,23 @@ func (f *Factory) AddLiqoNamespaceFlag(flags *pflag.FlagSet) {
 	flags.AddFlag(f.remotifyFlag(fl))
 }
 
-type options struct{ scoped bool }
+type options struct {
+	scoped            bool
+	restConfigMutator func(*rest.Config) error
+}
 
 // Options represents an option for the initialize function.
 type Options func(*options)
 
 // WithScopedPrinter marks the generated printer as scoped.
 func WithScopedPrinter(o *options) { o.scoped = true }
+
+// WithRESTConfigMutator mutates the REST configuration before any client is
+// created. It is intended for transports that preserve the API server URL for
+// TLS validation while changing the underlying TCP destination.
+func WithRESTConfigMutator(mutator func(*rest.Config) error) Options {
+	return func(o *options) { o.restConfigMutator = mutator }
+}
 
 // Initialize populates the object based on the provided flags.
 func (f *Factory) Initialize(opts ...Options) (err error) {
@@ -234,14 +248,20 @@ func (f *Factory) Initialize(opts ...Options) (err error) {
 	if err != nil {
 		return err
 	}
+	if o.restConfigMutator != nil {
+		if err := o.restConfigMutator(f.RESTConfig); err != nil {
+			return fmt.Errorf("configure REST transport: %w", err)
+		}
+	}
 	restcfg.SetRateLimiter(f.RESTConfig)
 
-	restMapper, err := f.factory.ToRESTMapper()
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(f.RESTConfig)
 	if err != nil {
 		return err
 	}
+	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClient))
 
-	f.KubeClient, err = f.factory.KubernetesClientSet()
+	f.KubeClient, err = kubernetes.NewForConfig(f.RESTConfig)
 	if err != nil {
 		return err
 	}

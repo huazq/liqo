@@ -57,6 +57,14 @@ func InitFlags(flagset *pflag.FlagSet, opts *Options) {
 		"The timeout of the ForeignCluster API server readiness check")
 	flagset.StringVar(&opts.DefaultLimitsEnforcement, "default-limits-enforcement", "none",
 		"Defines how strict is the enforcement of the quota offered by the remote cluster. Possible values are: none, soft, hard")
+	flagset.StringVar(&opts.ControlPlaneTransport, "controlplane-transport", "direct",
+		"Transport used by the Liqo control plane to reach remote API servers: direct or zenoh")
+	flagset.StringVar(&opts.ZenohBridgeImage, "zenoh-bridge-image", "",
+		"Image of zenoh-bridge-tcp used when controlplane-transport is zenoh")
+	flagset.StringVar(&opts.ZenohConfigSecretName, "zenoh-config-secret-name", "",
+		"Name of the Secret containing the Zenoh client configuration")
+	flagset.StringVar(&opts.ZenohConfigSecretKey, "zenoh-config-secret-key", "config.json5",
+		"Key in the Zenoh configuration Secret")
 
 	// Networking module
 	flagset.StringVar(&opts.IPAMServer, "ipam-server", "", "The address of the IPAM server (set to empty string to disable IPAM)")

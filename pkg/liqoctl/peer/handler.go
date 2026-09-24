@@ -51,10 +51,11 @@ type Options struct {
 	MTU                         int
 
 	// Authentication options
-	CreateResourceSlice bool
-	ResourceSliceClass  string
-	InBand              bool
-	ProxyURL            string
+	CreateResourceSlice        bool
+	ResourceSliceClass         string
+	InBand                     bool
+	ProxyURL                   string
+	RemoteZenohListenerAddress string
 
 	// Offloading options
 	CreateVirtualNode bool

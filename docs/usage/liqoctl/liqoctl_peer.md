@@ -147,6 +147,10 @@ liqoctl peer [flags]
 
 >The name of the kubeconfig user to use (in the remote cluster)
 
+`--remote-zenoh-listener-address` _string_:
+
+>Local ZBT listener host:port used to reach the remote API server during bootstrap; preserves --remote-kubeconfig server for TLS
+
 `--resource` _stringToString_:
 
 >Other resources requested for the VirtualNode (e.g., '--resource=nvidia.com/gpu=2')

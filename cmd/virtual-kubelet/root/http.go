@@ -32,7 +32,11 @@ import (
 	"time"
 
 	"github.com/virtual-kubelet/virtual-kubelet/node/api"
+	"github.com/virtual-kubelet/virtual-kubelet/node/nodeutil"
 	certificates "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/apis/apiserver"
+	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/certificate"
@@ -43,6 +47,12 @@ import (
 )
 
 type crtretriever func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+
+const (
+	extensionAPIServerAuthenticationNamespace = "kube-system"
+	extensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
+	extensionAPIServerClientCAKey             = "client-ca-file"
+)
 
 func setupHTTPServer(ctx context.Context, handler workload.PodHandler, localClient kubernetes.Interface,
 	remoteConfig *rest.Config, cfg *Opts) (err error) {
@@ -84,15 +94,35 @@ func setupHTTPServer(ctx context.Context, handler workload.PodHandler, localClie
 		GetPods:               handler.List,
 	}
 
-	api.AttachPodRoutes(podRoutes, mux, true)
+	api.AttachPodRoutes(podRoutes, mux, false)
+
+	// Authenticate API server requests through the standard extension-apiserver
+	// ConfigMap. This client CA is distinct from the API server serving CA on K3s
+	// and is watched so certificate rotations do not require a VK restart.
+	clientCA, err := newAPIServerClientCAController(ctx, localClient)
+	if err != nil {
+		return fmt.Errorf("failed to initialize API server client CA controller: %w", err)
+	}
+	authOpts := func(c *nodeutil.WebhookAuthConfig) error {
+		c.AuthnConfig.ClientCertificateCAContentProvider = clientCA
+		c.AuthnConfig.Anonymous = &apiserver.AnonymousAuthConfig{Enabled: true}
+		return nil
+	}
+	auth, err := nodeutil.WebhookAuth(localClient, cfg.NodeName, authOpts)
+	if err != nil {
+		return fmt.Errorf("failed to initialize webhook auth: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf("0.0.0.0:%d", cfg.ListenPort),
-		Handler:           mux,
+		Handler:           nodeutil.WithAuth(auth, mux),
 		ReadHeaderTimeout: 10 * time.Second, // Required to limit the effects of the Slowloris attack.
 		TLSConfig: &tls.Config{
 			GetCertificate: retriever,
 			MinVersion:     tls.VersionTLS12,
+			// Request the API server certificate, while dynamic verification is
+			// delegated to the webhook authenticator above.
+			ClientAuth: tls.RequestClientCert,
 		},
 	}
 
@@ -107,6 +137,46 @@ func setupHTTPServer(ctx context.Context, handler workload.PodHandler, localClie
 	}()
 
 	return nil
+}
+
+func newAPIServerClientCAController(ctx context.Context,
+	kubeClient kubernetes.Interface) (*dynamiccertificates.ConfigMapCAController, error) {
+	configMap, err := kubeClient.CoreV1().ConfigMaps(extensionAPIServerAuthenticationNamespace).Get(ctx,
+		extensionAPIServerAuthenticationConfigMap, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ConfigMap %s/%s: %w", extensionAPIServerAuthenticationNamespace,
+			extensionAPIServerAuthenticationConfigMap, err)
+	}
+	if len(configMap.Data[extensionAPIServerClientCAKey]) == 0 {
+		return nil, fmt.Errorf("ConfigMap %s/%s has no %q entry", extensionAPIServerAuthenticationNamespace,
+			extensionAPIServerAuthenticationConfigMap, extensionAPIServerClientCAKey)
+	}
+
+	controller, err := dynamiccertificates.NewDynamicCAFromConfigMapController("virtual-kubelet-client-ca",
+		extensionAPIServerAuthenticationNamespace, extensionAPIServerAuthenticationConfigMap,
+		extensionAPIServerClientCAKey, kubeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ConfigMap CA controller: %w", err)
+	}
+	go controller.Run(ctx, 1)
+
+	timeout := time.NewTimer(10 * time.Second)
+	defer timeout.Stop()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if len(controller.CurrentCABundleContent()) > 0 {
+			return controller, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context canceled while loading API server client CA: %w", ctx.Err())
+		case <-timeout.C:
+			return nil, fmt.Errorf("timed out loading API server client CA from ConfigMap %s/%s",
+				extensionAPIServerAuthenticationNamespace, extensionAPIServerAuthenticationConfigMap)
+		case <-ticker.C:
+		}
+	}
 }
 
 func attachMetricsRoutes(ctx context.Context, mux *http.ServeMux, cl rest.Interface, localClusterID liqov1beta1.ClusterID) {

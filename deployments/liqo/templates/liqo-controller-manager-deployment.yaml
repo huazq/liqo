@@ -50,6 +50,12 @@ spec:
         args:
           - --cluster-id=$(CLUSTER_ID)
           - --liqo-namespace=$(POD_NAMESPACE)
+          - --controlplane-transport={{ .Values.controlPlane.transport }}
+          {{- if eq .Values.controlPlane.transport "zenoh" }}
+          - --zenoh-bridge-image={{ required "controlPlane.zenoh.bridgeImage is required when controlPlane.transport is zenoh" .Values.controlPlane.zenoh.bridgeImage }}
+          - --zenoh-config-secret-name={{ required "controlPlane.zenoh.configSecretName is required when controlPlane.transport is zenoh" .Values.controlPlane.zenoh.configSecretName }}
+          - --zenoh-config-secret-key={{ .Values.controlPlane.zenoh.configSecretKey }}
+          {{- end }}
           - --networking-enabled={{ .Values.networking.enabled }}
           - --authentication-enabled={{ .Values.authentication.enabled }}
           - --tls-compatibility-mode={{ .Values.authentication.tlsCompatibilityMode }}

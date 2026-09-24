@@ -92,6 +92,7 @@ func main() {
 
 	reflectors := make(map[liqov1beta1.ClusterID]*reflection.Reflector)
 	d := &crdreplicator.Controller{
+		Context:   ctx,
 		Scheme:    mgr.GetScheme(),
 		Client:    mgr.GetClient(),
 		ClusterID: clusterID,

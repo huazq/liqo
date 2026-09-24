@@ -50,7 +50,11 @@ const (
 
 // Controller reconciles identity Secrets to start/stop the reflection of registered resources to remote clusters.
 type Controller struct {
-	Scheme *runtime.Scheme
+	// Context is the process-lifetime context used by reflectors. A reconcile
+	// request context is canceled as soon as Reconcile returns, while a
+	// reflector owns long-lived informers and workers.
+	Context context.Context
+	Scheme  *runtime.Scheme
 	client.Client
 	ClusterID liqov1beta1.ClusterID
 
@@ -171,7 +175,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, c.setupReflectionToPeeringCluster(ctx, currSecret, config, remoteClusterID, localTenantNamespace, remoteTenantNamespace)
+	return ctrl.Result{}, c.setupReflectionToPeeringCluster(currSecret, config, remoteClusterID, localTenantNamespace, remoteTenantNamespace)
 }
 
 // SetupWithManager registers a new controller for identity Secrets.
@@ -242,7 +246,7 @@ func (c *Controller) ensureFinalizer(ctx context.Context, secret *corev1.Secret,
 	return c.Client.Update(ctx, secret)
 }
 
-func (c *Controller) setupReflectionToPeeringCluster(ctx context.Context, secret *corev1.Secret, config *rest.Config,
+func (c *Controller) setupReflectionToPeeringCluster(secret *corev1.Secret, config *rest.Config,
 	remoteClusterID liqov1beta1.ClusterID, localNamespace, remoteNamespace string) error {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
@@ -253,7 +257,7 @@ func (c *Controller) setupReflectionToPeeringCluster(ctx context.Context, secret
 	secretHash := c.hashSecretConfig(secret.Data[consts.KubeconfigSecretField])
 
 	reflector := c.ReflectionManager.NewForRemote(dynamicClient, remoteClusterID, localNamespace, remoteNamespace, secretHash)
-	reflector.Start(ctx)
+	reflector.Start(c.Context)
 	c.Reflectors[remoteClusterID] = reflector
 	return nil
 }

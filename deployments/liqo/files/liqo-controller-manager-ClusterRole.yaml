@@ -125,6 +125,7 @@ rules:
   - foreignclusters
   - foreignclusters/finalizers
   - foreignclusters/status
+  - remoteapiaccesses
   verbs:
   - create
   - delete
@@ -133,6 +134,14 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.liqo.io
+  resources:
+  - remoteapiaccesses/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - discovery.k8s.io
   resources:

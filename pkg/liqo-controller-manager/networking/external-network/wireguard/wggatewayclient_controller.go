@@ -178,11 +178,17 @@ func (r *WgGatewayClientReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		r.eventRecorder.Event(wgClient, corev1.EventTypeNormal, "KeysSecretChecked", "Checked keys secret")
 	}
 
+	secretRefWasMissing := wgClient.Status.SecretRef == nil
 	if err := r.handleSecretRefStatus(ctx, wgClient); err != nil {
 		klog.Errorf("Error while handling secret ref status: %v", err)
 		r.eventRecorder.Event(wgClient, corev1.EventTypeWarning, "SecretRefStatusFailed",
 			fmt.Sprintf("Failed to handle secret ref status: %s", err))
 		return ctrl.Result{}, err
+	}
+	// The auto-generated key Secret reference is persisted by the deferred status update.
+	// Requeue before rendering the Deployment, so a fresh reconcile observes that reference.
+	if secretRefWasMissing {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Ensure deployment (create or update)

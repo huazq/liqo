@@ -51,6 +51,18 @@ apiServer:
   # -- Indicates that the API Server is exposing a certificate issued by a trusted Certification Authority.
   trustedCA: false
 
+# Control-plane API transport. "zenoh" preserves the API server address in
+# kubeconfigs, but dials it through a local zenoh-bridge-tcp listener.
+controlPlane:
+  transport: direct
+  zenoh:
+    # -- Image containing zenoh-bridge-tcp. Required when transport is zenoh.
+    bridgeImage: ""
+    # -- Secret in the Liqo namespace containing the Zenoh client configuration,
+    # -- including every certificate/key file referenced by it.
+    configSecretName: ""
+    configSecretKey: config.json5
+
 networking:
   # -- Use the default Liqo networking module.
   enabled: true
